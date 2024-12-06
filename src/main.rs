@@ -1,26 +1,46 @@
-// src/main.rs
-
-use rand::prelude::SliceRandom;
+use env_logger::Builder;
+use log::LevelFilter;
+use prometheus::{
+    register_gauge, register_int_counter, Encoder, Gauge, IntCounter, Registry, TextEncoder,
+};
 use rand::{distributions::Alphanumeric, Rng};
-use scylla::{batch::Batch, Session, SessionBuilder};
+use scylla::{Session, SessionBuilder};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio; // Import SliceRandom trait
+use tokio;
+use ulid::Ulid;
+use warp::Filter;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Event {
-    event_id: uuid::Uuid,
+    event_id: Ulid,
     event_type: String,
     timestamp: i64,
     payload: String,
 }
 
-fn generate_event() -> Event {
-    let event_id = uuid::Uuid::new_v4();
-    let event_type = ["login", "purchase", "logout"]
-        .choose(&mut rand::thread_rng())
-        .unwrap()
-        .to_string();
+lazy_static::lazy_static! {
+    pub static ref REGISTRY: Registry = Registry::new();
+    static ref API_REQUESTS: IntCounter = register_int_counter!("api_requests_total", "Total number of API requests").unwrap();
+    static ref API_REQUEST_LATENCY: Gauge = register_gauge!("api_request_latency_seconds", "API request latency in seconds").unwrap();
+    static ref API_EXCEPTIONS: IntCounter = register_int_counter!("api_exceptions_total", "Total number of API exceptions").unwrap();
+}
+
+fn register_custom_metrics() {
+    REGISTRY
+        .register(Box::new(API_REQUESTS.clone()))
+        .expect("collector can be registered");
+    REGISTRY
+        .register(Box::new(API_REQUEST_LATENCY.clone()))
+        .expect("collector can be registered");
+    REGISTRY
+        .register(Box::new(API_EXCEPTIONS.clone()))
+        .expect("collector can be registered");
+}
+
+fn generate_event(event_type: &str) -> Event {
+    let event_id = Ulid::new();
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -33,17 +53,30 @@ fn generate_event() -> Event {
 
     Event {
         event_id,
-        event_type,
+        event_type: event_type.to_string(),
         timestamp,
         payload,
     }
 }
 
+// Metrics endpoint
+async fn metrics() -> Result<impl warp::Reply, warp::Rejection> {
+    let encoder = TextEncoder::new();
+    let mut buffer = Vec::new();
+    let metric_families = prometheus::gather();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+    Ok(warp::reply::with_header(
+        buffer,
+        "Content-Type",
+        encoder.format_type(),
+    ))
+}
+
 async fn create_keyspace_and_table(session: &Session) {
-    // Create keyspace if it doesn't exist
+    // Create keyspace if it doesn't exist with replication factor of 1
     let create_keyspace_query = "
         CREATE KEYSPACE IF NOT EXISTS event_logging 
-        WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1};;
+        WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1};
     ";
     session
         .query(create_keyspace_query, ())
@@ -53,88 +86,41 @@ async fn create_keyspace_and_table(session: &Session) {
     // Create events table if it doesn't exist
     let create_table_query = "
         CREATE TABLE IF NOT EXISTS event_logging.events (
-            event_id UUID,
+            event_id TEXT,
             event_type TEXT,
             timestamp TIMESTAMP,
             payload TEXT,
-            PRIMARY KEY (event_id, timestamp)) WITH CLUSTERING ORDER BY (timestamp DESC);
+            PRIMARY KEY (event_type, event_id, timestamp)) WITH CLUSTERING ORDER BY (event_id ASC, timestamp DESC);
     ";
     session
         .query(create_table_query, ())
         .await
         .expect("Failed to create events table");
-    // Create index on event_type if it doesn't exist
-    let create_index_query = "CREATE INDEX IF NOT EXISTS ON event_logging.events (event_type);";
+}
+
+async fn ingest_event(session: Arc<Session>, event: Event) {
+    let query = "INSERT INTO event_logging.events (event_id, event_type, timestamp, payload) VALUES (?, ?, ?, ?)";
     session
-        .query(create_index_query, ())
+        .query(
+            query,
+            (
+                event.event_id.to_string(),
+                event.event_type,
+                event.timestamp,
+                event.payload,
+            ),
+        )
         .await
-        .expect("Failed to create index on event_type");
+        .expect("Failed to ingest event");
 }
 
-async fn ingest_events(session: Arc<Session>, num_events: usize) {
-    for _ in 0..num_events {
-        let event = generate_event();
-        let query =
-            "INSERT INTO event_logging.events (event_id, event_type, timestamp, payload) VALUES (?, ?, ?, ?)";
-        session
-            .query(
-                query,
-                (
-                    event.event_id,
-                    event.event_type,
-                    event.timestamp,
-                    event.payload,
-                ),
-            )
-            .await
-            .expect("Failed to ingest event");
-    }
-}
-
-async fn count_events_by_type(session: Arc<Session>, event_type: &str) {
-    let query = "SELECT COUNT(*) FROM event_logging.events WHERE event_type = ?";
-    let result = session
-        .query(query, (event_type,))
-        .await
-        .expect("Query failed");
-
-    // Check if rows are present
-    if let Some(rows) = result.rows {
-        let count: i64 = rows[0].columns[0].as_ref().unwrap().as_bigint().unwrap();
-        println!("Event type '{}': {} events", event_type, count);
-    } else {
-        println!("No rows found for event type '{}'", event_type);
-    }
-}
-
-async fn fetch_recent_events(session: Arc<Session>, event_type: &str, limit: usize) {
-    let query =
-        "SELECT event_id, timestamp, payload FROM event_logging.events WHERE event_type = ? LIMIT ?";
-    let result = session
-        .query(query, (event_type, limit as i32))
-        .await
-        .expect("Query failed");
-
-    // Check if rows are present
-    if let Some(rows) = result.rows {
-        for row in rows {
-            let event_id: uuid::Uuid = row.columns[0].as_ref().unwrap().as_uuid().unwrap();
-            let timestamp: i64 = row.columns[1].as_ref().unwrap().as_bigint().unwrap();
-            let payload: String = row.columns[2]
-                .as_ref()
-                .unwrap()
-                .as_text()
-                .unwrap()
-                .to_string();
-            println!("{} | {} | {}", event_id, timestamp, payload);
-        }
-    } else {
-        println!("No rows found for event type '{}'", event_type);
-    }
-}
-
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() {
+    Builder::new()
+        .filter_level(LevelFilter::Debug)
+        .format_timestamp_secs()
+        .init();
+    // register_custom_metrics();
     let session = Arc::new(
         SessionBuilder::new()
             .known_node("127.0.0.1:9042")
@@ -142,24 +128,34 @@ async fn main() {
             .await
             .expect("Failed to connect to ScyllaDB"),
     );
+
+    // Create keyspace and table if they don't exist
     create_keyspace_and_table(&session).await;
 
-    // Ingest events
-    let mut tasks = vec![];
-    for _ in 0..10 {
-        let session_clone = session.clone();
-        tasks.push(tokio::spawn(async move {
-            ingest_events(session_clone, 1000).await;
-        }));
-    }
+    // Define the HTTP route for ingesting events
+    let ingest_route = warp::post()
+        .and(warp::path("ingest"))
+        .and(warp::body::json())
+        .map({
+            let session_clone = session.clone();
+            move |event: Event| {
+                let session_clone = session_clone.clone();
+                tokio::spawn(async move {
+                    API_REQUESTS.inc();
+                    let start_time = std::time::Instant::now(); // Start timing
+                    ingest_event(session_clone, event).await;
+                    let duration = start_time.elapsed().as_secs_f64();
+                    API_REQUEST_LATENCY.set(duration);
+                });
+                warp::reply::with_status("Event ingested", warp::http::StatusCode::OK)
+            }
+        });
 
-    for task in tasks {
-        task.await.unwrap();
-    }
+    let metrics_route = warp::path("metrics").and_then(metrics);
 
-    println!("Ingestion complete");
-
-    // Query analytics
-    count_events_by_type(session.clone(), "login").await;
-    fetch_recent_events(session.clone(), "purchase", 5).await;
+    // Start the HTTP server
+    let routes = ingest_route.or(metrics_route);
+    warp::serve(routes)
+        .run(([127, 0, 0, 1], 3030)) // Listen on localhost:3030
+        .await;
 }

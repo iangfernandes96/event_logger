@@ -1,117 +1,183 @@
 version: '3.8'
 
 services:
+  # scylla-node1:
+  #   image: scylladb/scylla:latest
+  #   container_name: scylla-node1
+  #   ports:
+  #     - "9042:9042"
+  #     - "9160:9160"
+  #   environment:
+  #     - SCYLLA_CLUSTER_NAME=my_cluster
+  #     - SCYLLA_SEEDS=scylla-node1
+  #     - SCYLLA_LISTEN_ADDRESS=scylla-node1
+  #     - SCYLLA_BROADCAST_ADDRESS=scylla-node1
+  #     - SCYLLA_RPC_ADDRESS=0.0.0.0
+  #     - SCYLLA_API_ADDRESS=0.0.0.0
+  #     - SCYLLA_NUM_TOKENS=256
+  #     - SCYLLA_MEMORY=4G
+  #     - SCYLLA_COMMITLOG_SYNC=periodic
+  #     - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  #     - SCYLLA_ENABLE_METRICS=true
+  #   volumes:
+  #     - scylla-data-node1:/var/lib/scylla
+  #   networks:
+  #     - scylla-net
+
+  # scylla-node2:
+  #   image: scylladb/scylla:latest
+  #   container_name: scylla-node2
+  #   ports:
+  #     - "9043:9042"
+  #   environment:
+  #     - SCYLLA_CLUSTER_NAME=my_cluster
+  #     - SCYLLA_SEEDS=scylla-node1
+  #     - SCYLLA_LISTEN_ADDRESS=scylla-node2
+  #     - SCYLLA_BROADCAST_ADDRESS=scylla-node2
+  #     - SCYLLA_RPC_ADDRESS=0.0.0.0
+  #     - SCYLLA_API_ADDRESS=0.0.0.0
+  #     - SCYLLA_NUM_TOKENS=256
+  #     - SCYLLA_MEMORY=4G
+  #     - SCYLLA_COMMITLOG_SYNC=periodic
+  #     - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  #   volumes:
+  #     - scylla-data-node2:/var/lib/scylla
+  #   networks:
+  #     - scylla-net
+
+  # scylla-node3:
+  #   image: scylladb/scylla:latest
+  #   container_name: scylla-node3
+  #   ports:
+  #     - "9044:9042"
+  #   environment:
+  #     - SCYLLA_CLUSTER_NAME=my_cluster
+  #     - SCYLLA_SEEDS=scylla-node1
+  #     - SCYLLA_LISTEN_ADDRESS=scylla-node3
+  #     - SCYLLA_BROADCAST_ADDRESS=scylla-node3
+  #     - SCYLLA_RPC_ADDRESS=0.0.0.0
+  #     - SCYLLA_API_ADDRESS=0.0.0.0
+  #     - SCYLLA_NUM_TOKENS=256
+  #     - SCYLLA_MEMORY=4G
+  #     - SCYLLA_COMMITLOG_SYNC=periodic
+  #     - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  #   volumes:
+  #     - scylla-data-node3:/var/lib/scylla
+  #   networks:
+  #     - scylla-net
+
+  # scylla-node4:
+  #   image: scylladb/scylla:latest
+  #   container_name: scylla-node4
+  #   ports:
+  #     - "9045:9042"
+  #   environment:
+  #     - SCYLLA_CLUSTER_NAME=my_cluster
+  #     - SCYLLA_SEEDS=scylla-node1
+  #     - SCYLLA_LISTEN_ADDRESS=scylla-node4
+  #     - SCYLLA_BROADCAST_ADDRESS=scylla-node4
+  #     - SCYLLA_RPC_ADDRESS=0.0.0.0
+  #     - SCYLLA_API_ADDRESS=0.0.0.0
+  #     - SCYLLA_NUM_TOKENS=256
+  #     - SCYLLA_MEMORY=4G
+  #     - SCYLLA_COMMITLOG_SYNC=periodic
+  #     - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  #   volumes:
+  #     - scylla-data-node4:/var/lib/scylla
+  #   networks:
+  #     - scylla-net
+
+  # scylla-node5:
+  #   image: scylladb/scylla:latest
+  #   container_name: scylla-node5
+  #   ports:
+  #     - "9046:9042"
+  #   environment:
+  #     - SCYLLA_CLUSTER_NAME=my_cluster
+  #     - SCYLLA_SEEDS=scylla-node1
+  #     - SCYLLA_LISTEN_ADDRESS=scylla-node5
+  #     - SCYLLA_BROADCAST_ADDRESS=scylla-node5
+  #     - SCYLLA_RPC_ADDRESS=0.0.0.0
+  #     - SCYLLA_API_ADDRESS=0.0.0.0
+  #     - SCYLLA_NUM_TOKENS=256
+  #     - SCYLLA_MEMORY=4G
+  #     - SCYLLA_COMMITLOG_SYNC=periodic
+  #     - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  #     - SCYLLA_LOG_TO_STDOUT=true
+  #   volumes:
+  #     - scylla-data-node5:/var/lib/scylla
+  #   networks:
+  #     - scylla-net
   scylla-node1:
-    image: scylladb/scylla:latest
+    image: scylladb/scylla
     container_name: scylla-node1
+    command: --seeds=scylla-node1 --cluster-name=my_cluster --smp 2 --memory 4G --overprovisioned 1 --api-address 0.0.0.0
     ports:
-      - "9042:9042"
-      - "9160:9160"
-    environment:
-      - SCYLLA_CLUSTER_NAME=my_cluster
-      - SCYLLA_SEEDS=scylla-node1
-      - SCYLLA_LISTEN_ADDRESS=scylla-node1
-      - SCYLLA_BROADCAST_ADDRESS=scylla-node1
-      - SCYLLA_RPC_ADDRESS=0.0.0.0
-      - SCYLLA_NUM_TOKENS=256
-      - SCYLLA_MEMORY=4G
-      - SCYLLA_COMMITLOG_SYNC=periodic
-      - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+      - "9042:9042" # CQL port for the first node
+      - "9180:9180" # prometheus
     volumes:
       - scylla-data-node1:/var/lib/scylla
+    environment:
+      - SCYLLA_TARGET_ARCH=arm64
+    restart: unless-stopped
     networks:
       - scylla-net
 
   scylla-node2:
-    image: scylladb/scylla:latest
+    image: scylladb/scylla
     container_name: scylla-node2
-    ports:
-      - "9043:9042"
-      - "9161:9160"
-    environment:
-      - SCYLLA_CLUSTER_NAME=my_cluster
-      - SCYLLA_SEEDS=scylla-node1
-      - SCYLLA_LISTEN_ADDRESS=scylla-node2
-      - SCYLLA_BROADCAST_ADDRESS=scylla-node2
-      - SCYLLA_RPC_ADDRESS=0.0.0.0
-      - SCYLLA_NUM_TOKENS=256
-      - SCYLLA_MEMORY=4G
-      - SCYLLA_COMMITLOG_SYNC=periodic
-      - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+    command: --seeds=scylla-node1 --cluster-name=my_cluster --smp 1 --memory 2G --overprovisioned 1 --api-address 0.0.0.0
     volumes:
       - scylla-data-node2:/var/lib/scylla
+    depends_on:
+      - scylla-node1
+    restart: unless-stopped
     networks:
       - scylla-net
 
   scylla-node3:
-    image: scylladb/scylla:latest
+    image: scylladb/scylla
     container_name: scylla-node3
-    ports:
-      - "9044:9042"
-      - "9162:9160"
-    environment:
-      - SCYLLA_CLUSTER_NAME=my_cluster
-      - SCYLLA_SEEDS=scylla-node1
-      - SCYLLA_LISTEN_ADDRESS=scylla-node3
-      - SCYLLA_BROADCAST_ADDRESS=scylla-node3
-      - SCYLLA_RPC_ADDRESS=0.0.0.0
-      - SCYLLA_NUM_TOKENS=256
-      - SCYLLA_MEMORY=4G
-      - SCYLLA_COMMITLOG_SYNC=periodic
-      - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+    command: --seeds=scylla-node1 --cluster-name=my_cluster --smp 1 --memory 2G --overprovisioned 1 --api-address 0.0.0.0
     volumes:
       - scylla-data-node3:/var/lib/scylla
+    depends_on:
+      - scylla-node1
+    restart: unless-stopped
     networks:
       - scylla-net
 
-  scylla-node4:
-    image: scylladb/scylla:latest
-    container_name: scylla-node4
-    ports:
-      - "9045:9042"
-      - "9164:9160"
-    environment:
-      - SCYLLA_CLUSTER_NAME=my_cluster
-      - SCYLLA_SEEDS=scylla-node1
-      - SCYLLA_LISTEN_ADDRESS=scylla-node4
-      - SCYLLA_BROADCAST_ADDRESS=scylla-node4
-      - SCYLLA_RPC_ADDRESS=0.0.0.0
-      - SCYLLA_NUM_TOKENS=256
-      - SCYLLA_MEMORY=4G
-      - SCYLLA_COMMITLOG_SYNC=periodic
-      - SCYLLA_COMMITLOG_SYNC_PERIOD=10
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
     volumes:
-      - scylla-data-node4:/var/lib/scylla
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
     networks:
       - scylla-net
 
-  scylla-node5:
-    image: scylladb/scylla:latest
-    container_name: scylla-node5
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
     ports:
-      - "9046:9042"
-      - "9165:9160"
-    environment:
-      - SCYLLA_CLUSTER_NAME=my_cluster
-      - SCYLLA_SEEDS=scylla-node1
-      - SCYLLA_LISTEN_ADDRESS=scylla-node5
-      - SCYLLA_BROADCAST_ADDRESS=scylla-node5
-      - SCYLLA_RPC_ADDRESS=0.0.0.0
-      - SCYLLA_NUM_TOKENS=256
-      - SCYLLA_MEMORY=4G
-      - SCYLLA_COMMITLOG_SYNC=periodic
-      - SCYLLA_COMMITLOG_SYNC_PERIOD=10
-    volumes:
-      - scylla-data-node5:/var/lib/scylla
+      - "3000:3000"
+    depends_on:
+      - prometheus
     networks:
       - scylla-net
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
 
 volumes:
   scylla-data-node1:
   scylla-data-node2:
   scylla-data-node3:
-  scylla-data-node4:
-  scylla-data-node5:
+  grafana-storage:
+    # scylla-data-node4:
+    # scylla-data-node5:
 
 
 networks:
