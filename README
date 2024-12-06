@@ -1,0 +1,111 @@
+# Event Logging Service
+
+This project is a Rust-based web service for ingesting and querying events using Warp as the web framework and ScyllaDB as the database. The service also exposes Prometheus metrics for monitoring.
+
+## Features
+
+- **Event Ingestion**: Allows clients to send events to the service, which are stored in ScyllaDB.
+- **Event Querying**: Clients can query events based on their type.
+- **Prometheus Metrics**: Exposes metrics for monitoring API requests and latencies.
+
+## Technologies Used
+
+- **Rust**: The programming language used for building the service.
+- **Warp**: A web framework for building HTTP services in Rust.
+- **ScyllaDB**: A high-performance NoSQL database for storing events.
+- **Prometheus**: A monitoring system and time series database.
+
+## Getting Started
+
+### Prerequisites
+
+- Rust (latest stable version)
+- Docker (for running ScyllaDB and Prometheus)
+- Cargo (Rust package manager)
+
+### Installation
+
+1. **Clone the repository**:
+
+   ```bash
+   git clone https://github.com/yourusername/event-logging-service.git
+   cd event-logging-service
+   ```
+
+2. **Build the project**:
+
+   ```bash
+   cargo build
+   ```
+
+3. **Set up Docker containers**:
+
+  
+
+4. **Start the Docker containers**:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+### Running the Service
+
+1. **Run the Rust service**:
+
+   ```bash
+   cargo run
+   ```
+
+2. **Access the service**:
+
+   - The service will be available at `http://localhost:3030`.
+   - You can ingest events by sending a POST request to `/ingest`.
+   - You can query events by sending a GET request to `/query?event_type=<event_type>`.
+
+### Example Requests
+
+- **Ingest an Event**:
+
+   ```bash
+   curl -X POST http://localhost:3030/ingest -H "Content-Type: application/json" -d '{
+       "event_id": "your-event-id",
+       "event_type": "login",
+       "timestamp": 1633072800000,
+       "payload": "User logged in"
+   }'
+   ```
+
+   ```bash
+    curl -X POST http://localhost:3030/ingest -H "Content-Type: application/json" -d '{
+        "event_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "event_type": "login",
+        "timestamp": 1633072800000,
+        "payload": "User logged in again"
+    }'
+    ```
+
+- **Query Events**:
+
+   ```bash
+   curl http://localhost:3030/query?event_type=login
+   ```
+
+### Prometheus Metrics
+
+- Access Prometheus metrics at `http://localhost:9090/metrics`.
+
+### Testing
+
+- You can run load tests using the provided `loadtest.js` script. Make sure to have Node.js and the required dependencies installed.
+
+### Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
+
+### License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Acknowledgments
+
+- Thanks to the developers of Warp, ScyllaDB, and Prometheus for their excellent tools and libraries.
