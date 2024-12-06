@@ -1,0 +1,11 @@
+   global:
+     scrape_interval: 5s  # Default scrape interval
+
+   scrape_configs:
+    #  - job_name: 'backend'
+    #    static_configs:
+    #      - targets: ['localhost:3030']  # Replace with your backend server address
+
+     - job_name: 'scylladb'
+       static_configs:
+         - targets: ['scylla-node1:9180', 'scylla-node2:9180', 'scylla-node3:9180']  # Replace with your ScyllaDB address
